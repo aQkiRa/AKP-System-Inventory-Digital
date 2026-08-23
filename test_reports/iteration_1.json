@@ -1,0 +1,47 @@
+{
+  "summary": "First iteration testing (Phase 1-3) of Sistem Informasi Pabrik Es Kristal. Built pytest regression suite covering auth (8 roles + brute-force lockout), master data (catalog/settings/customers/users/audit), production (create/approve/reject/anomaly + RBAC), orders/surat jalan (create, reorder, ESC/P .prn, handover FIFO deduct, oversell rejection, edit-after-handover blocked, revise, cancel with reason), and reports (dashboard/series/xlsx export). All 28 backend tests PASS (100%). Frontend smoke-tested with Playwright across 3 roles (marketing, produksi, admin): login works, RBAC nav filtering works for produksi (no Surat Jalan), harvest input + confirmation modal + toast works, admin sees full menu, wrong password stays on login. Console clean except expected 401 on invalid login.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/production/harvests", "issue": "Anomaly flag depends on machines.avg_sacks_per_harvest > 0; on fresh seed the average is 0 so 300-sak entries do NOT get anomaly=true. Consider using rolling average of recent harvests or a fallback threshold (e.g. > 100 sacks/harvest) so anomaly badge works from day one."},
+      {"endpoint": "POST /api/stock/adjust", "issue": "Uses updateOne with sort option which MongoDB rejects for updateOne; the reason field silently fails to attach to the last stock_move (wrapped in .catch(() => {})). Should use collection.findOneAndUpdate with sort, or update by _id captured from addBatch/consumeFifo return value."},
+      {"endpoint": "POST /api/auth/login (brute-force)", "issue": "Lock identifier is req.ip:username. Behind FastAPI proxy req.ip may resolve to 127.0.0.1 for every request (no trust proxy set in Express), so all users share a single IP bucket — DoS risk. Enable app.set('trust proxy', true) and/or key lockout by username only."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Sidebar for Marketing role", "issues": ["Marketing sees 'Produksi' and 'Master Data' nav items. The input form is correctly hidden (canInput role check), so it acts as read-only view — but per requirement 'Marketing tidak melihat form panen' this is acceptable. If stricter menu-hiding is desired, remove 'marketing' from NAV.produksi roles in /app/frontend/public/js/app.js line 5."]},
+      {"screen": "Login redirect", "issues": ["After a failed login the password field is not cleared and no inline error message is shown near the form — only a toast; consider a persistent error hint under the password input."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Minor) Improve anomaly detection to work on cold-start when machine.avg_sacks_per_harvest = 0.",
+    "(Minor) Fix stock adjust reason persistence (updateOne with sort is unsupported in MongoDB).",
+    "(Security) Set Express 'trust proxy' so login-attempts key uses real client IP.",
+    "(Optional UX) Decide whether Marketing role should see 'Produksi'/'Master Data' menu items — code intentionally includes them for read-only viewing."
+  ],
+  "critical_code_review_comments": [
+    "orders.js /:id/revise copies o with spread including _id then overrides — OK, but 'revision_of' is set on the NEW doc; original SJ is marked status:'revised'. Downstream reports filter revised out of demand — good.",
+    "orders.js handover: consumeFifo is executed BEFORE the order status update. If consumeFifo throws mid-loop (e.g. second item lacks stock while first already deducted), stock is left partially consumed with no rollback. Consider a pre-check total availability before consuming, or wrap in a MongoDB transaction.",
+    "auth.js login: password_hash verified with verifyPassword; brute force counter is not decremented after successful login for other keys — fine, but confirm bcrypt hash format ($2b$) via seeding.",
+    "master.js PUT /settings: any authenticated 'management' role can update settings but requirement said management is read-only. Currently requireRole('management') allows master_admin (bypass) AND management to update settings. Consider tightening to master_admin only, or explicitly document that management is allowed to change daily_target_ton.",
+    "master.js GET /users: allowed for management/co_driver/marketing but returns full user list including inactive users; consider filtering active:true for non-admins.",
+    "reports.js /export: no date validation — very large ranges could OOM. Add max-range guard (e.g. 366 days)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (new)"
+  ],
+  "success_rate": {"backend": "100% (28/28)", "frontend": "100% smoke (login, RBAC nav, harvest input+confirm+toast, admin master data page)"},
+  "test_credentials": "admin/admin123 + owner|coproduksi|produksi|codriver|driver|stockkeeper|marketing / pabrik123 — all verified working.",
+  "seed_data_creation": "Tests create TEST_-prefixed customers, harvests, and SJs (SJ/YYYYMM/NNNN). One test also creates a user 'test_<hex>' with role=driver via admin — recommend cleanup job if suite is re-run frequently.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend 100% green. Focus remaining UI regression on: (1) Prioritas Queue drag & drop persists order and label updates, (2) Print SJ modal WYSIWYG + .prn download button both work, (3) Multi-tab Socket.IO stock:update live push (open stockkeeper approve harvest in tab A, verify tab B dashboard tile increments without refresh), (4) Laporan tab date filter + Export Excel button downloads a valid xlsx (backend export already verified). Roles verified in UI: marketing (has Produksi read-only visible), produksi (no Surat Jalan), admin (full menu). Login page has data-testid login-username/password/submit.",
+  "rca of the issue": "N/A — no blocking issues found."
+}
