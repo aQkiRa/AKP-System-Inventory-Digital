@@ -1,0 +1,71 @@
+services:
+  # 1. Database MongoDB
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    # No published port: backend-node/backend reach it over the internal
+    # Docker network as "mongodb:27017". Publishing this to the host was
+    # exposing an unauthenticated database on the VPS's public IP.
+    # If you need host-side access (e.g. MongoDB Compass) for debugging,
+    # bind it to localhost only: "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  # 2. Backend Node.js + Socket.io
+  backend-node:
+    build:
+      context: ./backend-node
+    container_name: backend-node
+    ports:
+      - "5000:5000" # REST API dan Socket.io
+    env_file:
+      - ./backend-node/.env
+    environment:
+      # Override untuk jaringan Docker (nama service, bukan localhost)
+      - MONGO_URL=mongodb://mongodb:27017
+      - PORT=5000
+    volumes:
+      - ./backend-node:/app
+      - /app/node_modules # Mencegah volume menimpa node_modules di dalam container
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  # 3. Backend Python (layanan tambahan / health-check)
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  # 4. Frontend React.js (CRA + craco)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000" # Port default React
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:5000
+      - REACT_APP_SOCKET_URL=http://localhost:5000
+      - WATCHPACK_POLLING=true # Mengaktifkan hot-reload di dalam Docker
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend-node
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

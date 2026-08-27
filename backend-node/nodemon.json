@@ -1,0 +1,4 @@
+{
+  "legacyWatch": true,
+  "ignore": ["node_modules", "uploads"]
+}

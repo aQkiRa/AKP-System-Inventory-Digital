@@ -2,6 +2,7 @@ const { MongoClient } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
 
+let client = null;
 let db = null;
 
 const ICE_TYPES = ['Tube', 'Serut'];
@@ -23,7 +24,7 @@ const DEMO_USERS = [
 ];
 
 async function connect() {
-  const client = new MongoClient(process.env.MONGO_URL);
+  client = new MongoClient(process.env.MONGO_URL);
   await client.connect();
   db = client.db(process.env.DB_NAME);
   await seed();
@@ -71,16 +72,35 @@ async function seed() {
     { _id: 'global' },
     {
       $setOnInsert: {
-        daily_target_ton: 20,
-        low_stock_threshold: 50,
-        company_name: 'PT ES KRISTAL NUSANTARA',
-        company_address: 'Jl. Industri Raya No. 12, Kawasan Pabrik',
-        company_phone: '0812-0000-0000',
+        daily_target_kg: 20000,
+        company_name: 'CV ARTHALAYA KARYA PARAMA',
+        company_address: 'Jl. Terusan Mabes Hankam Rt.001 Rw.03 No.6, Kel. Setu, Kec. Cipayung - Jakarta Timur 13880',
+        company_phone: '',
         updated_at: new Date().toISOString(),
       },
     },
     { upsert: true }
   );
+
+  const settings = await db.collection('settings').findOne({ _id: 'global' });
+  if (settings && settings.daily_target_kg == null) {
+    await db.collection('settings').updateOne(
+      { _id: 'global' },
+      { $set: { daily_target_kg: (settings.daily_target_ton || 20) * 1000 }, $unset: { daily_target_ton: '' } }
+    );
+  }
+  if (settings && settings.company_name === 'PT ES KRISTAL NUSANTARA') {
+    await db.collection('settings').updateOne(
+      { _id: 'global' },
+      {
+        $set: {
+          company_name: 'CV ARTHALAYA KARYA PARAMA',
+          company_address: 'Jl. Terusan Mabes Hankam Rt.001 Rw.03 No.6, Kel. Setu, Kec. Cipayung - Jakarta Timur 13880',
+          company_phone: '',
+        },
+      }
+    );
+  }
 
   const custCount = await db.collection('customers').countDocuments();
   if (custCount === 0) {
@@ -92,4 +112,19 @@ async function seed() {
   }
 }
 
-module.exports = { connect, getDb, ICE_TYPES, SIZES, MACHINES, DEMO_USERS };
+async function nextSjNo() {
+  const today = new Date();
+  const ymd = today.toISOString().slice(0, 10).replace(/-/g, '');
+  const counterId = `sj_${ymd}`;
+  const result = await db
+    .collection('counters')
+    .findOneAndUpdate(
+      { _id: counterId },
+      { $inc: { seq: 1 } },
+      { upsert: true, returnDocument: 'after' }
+    );
+  const seq = result.value ? result.value.seq : result.seq;
+  return `SJ-${ymd}-${String(seq).padStart(4, '0')}`;
+}
+
+module.exports = { connect, getDb, nextSjNo, ICE_TYPES, SIZES, MACHINES, DEMO_USERS };

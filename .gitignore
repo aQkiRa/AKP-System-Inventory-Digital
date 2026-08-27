@@ -1,0 +1,25 @@
+# Secrets / environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+
+# Build output
+build/
+dist/
+
+# Logs
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Uploaded files
+backend-node/uploads/*
+!backend-node/uploads/.gitkeep
