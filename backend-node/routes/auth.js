@@ -5,20 +5,26 @@ const auth = require('../auth');
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) {
-    return res.status(400).json({ detail: 'Username dan password wajib diisi' });
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ detail: 'Email dan password wajib diisi' });
   }
 
-  const user = await db.getDb().collection('users').findOne({ username });
-  if (!user || !user.active || !auth.verifyPassword(password, user.password_hash)) {
-    return res.status(401).json({ detail: 'Username atau password salah' });
+  const user = await db.getDb().collection('users').findOne({ email: String(email).trim().toLowerCase() });
+  if (!user || !auth.verifyPassword(password, user.password_hash)) {
+    return res.status(401).json({ detail: 'Email atau password salah' });
+  }
+  // Only revealed after a correct password, so it can't be used to probe
+  // which emails belong to suspended accounts.
+  if (!user.active) {
+    return res.status(403).json({ detail: auth.SUSPENDED_MESSAGE, code: 'account_suspended' });
   }
 
   const token = auth.signToken(user);
   const safeUser = {
     id: user._id,
     username: user.username,
+    email: user.email,
     name: user.name,
     role: user.role,
     role_label: auth.ROLE_LABELS[user.role],
@@ -53,12 +59,13 @@ router.patch('/me', auth.requireAuth, async (req, res) => {
     .getDb()
     .collection('users')
     .findOneAndUpdate({ _id: req.user.id }, { $set: update }, { returnDocument: 'after' });
-  const doc = result.value || result;
+  const doc = result?.value ?? result;
   await auth.audit(req, 'update_profile', 'user', req.user.id, update);
   res.json({
     user: {
       id: doc._id,
       username: doc.username,
+      email: doc.email,
       name: doc.name,
       role: doc.role,
       role_label: auth.ROLE_LABELS[doc.role],
@@ -71,8 +78,8 @@ router.post('/change-password', auth.requireAuth, async (req, res) => {
   if (!old_password || !new_password) {
     return res.status(400).json({ detail: 'Password lama dan password baru wajib diisi' });
   }
-  if (new_password.length < 6) {
-    return res.status(400).json({ detail: 'Password baru minimal 6 karakter' });
+  if (!auth.isPasswordValid(new_password)) {
+    return res.status(400).json({ detail: auth.PASSWORD_POLICY_MESSAGE });
   }
   const user = await db.getDb().collection('users').findOne({ _id: req.user.id });
   if (!auth.verifyPassword(old_password, user.password_hash)) {

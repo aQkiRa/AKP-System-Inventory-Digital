@@ -17,7 +17,11 @@ process.on('unhandledRejection', (err) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const CORS_ORIGINS = (process.env.CORS_ORIGINS || '*').split(',').map((origin) => origin.trim());
+const CORS_ORIGINS_RAW = (process.env.CORS_ORIGINS || '*').trim();
+// The `cors` package only treats the literal string "*" as wildcard-allow-all;
+// an array containing "*" is matched literally against the Origin header
+// (which never equals "*"), silently blocking every cross-origin request.
+const CORS_ORIGINS = CORS_ORIGINS_RAW === '*' ? true : CORS_ORIGINS_RAW.split(',').map((origin) => origin.trim());
 
 async function main() {
   await db.connect();
@@ -47,6 +51,7 @@ async function main() {
   app.use('/api/users', require('./routes/users'));
   app.use('/api/machines', require('./routes/machines'));
   app.use('/api/customers', require('./routes/customers'));
+  app.use('/api/vendors', require('./routes/vendors'));
   app.use('/api/stock', require('./routes/stock'));
   app.use('/api/delivery', require('./routes/delivery'));
   app.use('/api/settings', require('./routes/settings'));

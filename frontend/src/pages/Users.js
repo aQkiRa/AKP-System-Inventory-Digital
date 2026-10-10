@@ -17,7 +17,7 @@ const ROLES = [
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ username: '', name: '', role: 'tim_produksi', password: '' });
+  const [form, setForm] = useState({ username: '', email: '', name: '', role: 'tim_produksi', password: '' });
   const [error, setError] = useState('');
 
   const [resetTarget, setResetTarget] = useState(null);
@@ -36,7 +36,7 @@ export default function Users() {
     try {
       await api.post('/users', form);
       setOpen(false);
-      setForm({ username: '', name: '', role: 'tim_produksi', password: '' });
+      setForm({ username: '', email: '', name: '', role: 'tim_produksi', password: '' });
       load();
     } catch (err) {
       setError(err.response?.data?.detail || 'Gagal menyimpan pengguna');
@@ -76,6 +76,7 @@ export default function Users() {
         <Table
           columns={[
             { key: 'username', header: 'Username' },
+            { key: 'email', header: 'Email' },
             { key: 'name', header: 'Nama' },
             { key: 'role_label', header: 'Peran' },
             { key: 'active', header: 'Status', render: (r) => (r.active ? <Badge tone="green">Aktif</Badge> : <Badge tone="red">Nonaktif</Badge>) },
@@ -101,11 +102,15 @@ export default function Users() {
       <Modal open={open} onClose={() => setOpen(false)} title="Tambah Pengguna">
         <form onSubmit={handleSubmit}>
           <Input label="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />
+          <Input label="Email (tidak dapat diubah setelah dibuat)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
           <Input label="Nama Lengkap" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Select label="Peran" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
-          <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+          <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} />
+          <p className="text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-3">
+            Minimal 8 karakter, mengandung kombinasi huruf besar dan angka.
+          </p>
           {error && <p className="text-sm text-red-500 dark:text-red-400 mb-3">{error}</p>}
           <Button type="submit" className="w-full">Simpan</Button>
         </form>
@@ -119,8 +124,11 @@ export default function Users() {
             value={resetPassword}
             onChange={(e) => setResetPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
           />
+          <p className="text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-3">
+            Minimal 8 karakter, mengandung kombinasi huruf besar dan angka.
+          </p>
           {resetError && <p className="text-sm text-red-500 dark:text-red-400 mb-3">{resetError}</p>}
           <Button type="submit" className="w-full">Simpan Password Baru</Button>
         </form>

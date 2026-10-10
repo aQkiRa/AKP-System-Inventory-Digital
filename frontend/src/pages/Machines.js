@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import api from '../api/client';
-import { Button, Card, Table, Modal, Input, Badge } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
+import { Button, Card, Table, Modal, Input, Badge, QtyCounter } from '../components/ui';
+
+const CAN_MANAGE_ROLES = ['master_admin', 'co_produksi'];
 
 export default function Machines() {
+  const { user } = useAuth();
   const [machines, setMachines] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: '', name: '', avg_sacks_per_harvest: '' });
@@ -33,6 +37,11 @@ export default function Machines() {
     load();
   }
 
+  async function toggleStatus(m) {
+    await api.patch(`/machines/${m._id}`, { status: m.status === 'maintenance' ? 'running' : 'maintenance' });
+    load();
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -40,7 +49,9 @@ export default function Machines() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Mesin Produksi</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Daftar mesin es dan kapasitas rata-rata</p>
         </div>
-        <Button onClick={() => setOpen(true)}><Plus size={16} className="inline mr-1" /> Tambah Mesin</Button>
+        {CAN_MANAGE_ROLES.includes(user.role) && (
+          <Button onClick={() => setOpen(true)}><Plus size={16} className="inline mr-1" /> Tambah Mesin</Button>
+        )}
       </div>
 
       <Card>
@@ -48,13 +59,29 @@ export default function Machines() {
           columns={[
             { key: 'code', header: 'Kode' },
             { key: 'name', header: 'Nama' },
-            { key: 'avg_sacks_per_harvest', header: 'Rata-rata Karung/Panen' },
+            { key: 'avg_sacks_per_harvest', header: 'Rata-rata Sak/Panen' },
             { key: 'active', header: 'Status', render: (r) => (r.active ? <Badge tone="green">Aktif</Badge> : <Badge tone="red">Nonaktif</Badge>) },
-            { key: 'actions', header: 'Aksi', render: (r) => (
-              <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => toggleActive(r)}>
-                {r.active ? 'Nonaktifkan' : 'Aktifkan'}
-              </Button>
-            ) },
+            {
+              key: 'operational_status',
+              header: 'Kondisi',
+              render: (r) => (r.status === 'maintenance' ? <Badge tone="yellow">Maintenance</Badge> : <Badge tone="green">Running</Badge>),
+            },
+            ...(CAN_MANAGE_ROLES.includes(user.role)
+              ? [{
+                  key: 'actions',
+                  header: 'Aksi',
+                  render: (r) => (
+                    <div className="flex flex-wrap gap-1">
+                      <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => toggleActive(r)}>
+                        {r.active ? 'Nonaktifkan' : 'Aktifkan'}
+                      </Button>
+                      <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => toggleStatus(r)}>
+                        {r.status === 'maintenance' ? 'Set Running' : 'Set Maintenance'}
+                      </Button>
+                    </div>
+                  ),
+                }]
+              : []),
           ]}
           rows={machines}
         />
@@ -64,7 +91,7 @@ export default function Machines() {
         <form onSubmit={handleSubmit}>
           <Input label="Kode Mesin" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="MESIN-3" required />
           <Input label="Nama Mesin" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label="Rata-rata Karung / Panen" type="number" value={form.avg_sacks_per_harvest} onChange={(e) => setForm({ ...form, avg_sacks_per_harvest: e.target.value })} />
+          <QtyCounter label="Rata-rata Sak / Panen" value={form.avg_sacks_per_harvest} onChange={(v) => setForm({ ...form, avg_sacks_per_harvest: v })} />
           {error && <p className="text-sm text-red-500 dark:text-red-400 mb-3">{error}</p>}
           <Button type="submit" className="w-full">Simpan</Button>
         </form>

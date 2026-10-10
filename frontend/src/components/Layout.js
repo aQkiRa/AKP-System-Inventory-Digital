@@ -16,18 +16,22 @@ import {
   PanelLeftOpen,
   PackageCheck,
   UserCircle,
+  Boxes,
+  Building2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { SOCKET_URL } from '../api/client';
 import { ThemeToggle } from './ui';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: 'all' },
-  { to: '/stock', label: 'Produksi & Stok', icon: Snowflake, roles: ['master_admin', 'management', 'co_produksi', 'tim_produksi', 'stock_keeper'] },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['master_admin', 'management', 'marketing', 'stock_keeper', 'co_driver', 'co_produksi'] },
+  { to: '/production', label: 'Produksi', icon: Snowflake, roles: ['master_admin', 'management', 'co_produksi', 'tim_produksi'] },
+  { to: '/stock', label: 'Stok Cold Room', icon: Boxes, roles: ['master_admin', 'management', 'co_produksi', 'tim_produksi', 'stock_keeper'] },
   { to: '/delivery', label: 'Surat Jalan', icon: Truck, roles: ['master_admin', 'management', 'marketing', 'co_driver', 'driver', 'stock_keeper'] },
   { to: '/driver', label: 'Pengiriman Saya', icon: PackageCheck, roles: ['master_admin', 'driver'] },
   { to: '/customers', label: 'Pelanggan', icon: Users2, roles: ['master_admin', 'management', 'marketing'] },
-  { to: '/machines', label: 'Mesin', icon: Cog, roles: ['master_admin', 'management'] },
+  { to: '/vendors', label: 'Vendor', icon: Building2, roles: ['master_admin', 'management', 'stock_keeper', 'co_produksi'] },
+  { to: '/machines', label: 'Mesin', icon: Cog, roles: ['master_admin', 'management', 'co_produksi'] },
   { to: '/users', label: 'Pengguna', icon: Users2, roles: ['master_admin'] },
   { to: '/audit', label: 'Log Aktivitas', icon: ScrollText, roles: ['master_admin', 'management'] },
   { to: '/settings', label: 'Pengaturan', icon: SettingsIcon, roles: ['master_admin', 'management'] },
@@ -58,14 +62,14 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
+    <div className="h-screen overflow-hidden flex bg-slate-50 dark:bg-slate-950 print:h-auto print:overflow-visible print:block">
       <aside
-        className={`${collapsed ? 'w-16' : 'w-64'} shrink-0 transition-all duration-200 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col`}
+        className={`print:hidden ${collapsed ? 'w-16' : 'w-64'} shrink-0 transition-all duration-200 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col h-full overflow-hidden`}
       >
         <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
           {!collapsed && (
             <div className="min-w-0 px-2">
-              <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">AKP Inventory</p>
+              <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">AKP Produksi Digital</p>
               <p className="text-xs text-slate-500 dark:text-slate-500 truncate">CV Arthalaya Karya Parama</p>
             </div>
           )}
@@ -77,7 +81,7 @@ export default function Layout({ children }) {
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
-        <nav className="flex-1 py-3">
+        <nav className="flex-1 py-3 overflow-y-auto">
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -103,8 +107,8 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/40">
+      <div className="flex-1 flex flex-col min-w-0 h-full print:h-auto print:block">
+        <header className="print:hidden h-16 shrink-0 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/40">
           <div />
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -124,7 +128,7 @@ export default function Layout({ children }) {
             </button>
           </div>
         </header>
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+        <main className="flex-1 p-6 overflow-y-auto print:overflow-visible print:p-0">{children}</main>
       </div>
     </div>
   );

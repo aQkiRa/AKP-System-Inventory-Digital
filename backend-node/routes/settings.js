@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
   res.json(settings);
 });
 
-router.patch('/', auth.requireRole('master_admin', 'management'), async (req, res) => {
+router.patch('/', auth.requireRole('master_admin'), async (req, res) => {
   const { daily_target_kg, company_name, company_address, company_phone } = req.body || {};
   const update = { updated_at: new Date().toISOString() };
   if (daily_target_kg !== undefined) update.daily_target_kg = Number(daily_target_kg);
@@ -23,7 +23,7 @@ router.patch('/', auth.requireRole('master_admin', 'management'), async (req, re
     .collection('settings')
     .findOneAndUpdate({ _id: 'global' }, { $set: update }, { returnDocument: 'after' });
   await auth.audit(req, 'update', 'settings', 'global', update);
-  res.json(result.value || result);
+  res.json(result?.value ?? result);
 });
 
 module.exports = router;

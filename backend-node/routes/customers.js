@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
 
 router.post(
   '/',
-  auth.requireRole('master_admin', 'management', 'marketing'),
+  auth.requireRole('master_admin', 'marketing'),
   async (req, res) => {
     const { name, phone, address } = req.body || {};
     if (!name) return res.status(400).json({ detail: 'Nama pelanggan wajib diisi' });
@@ -27,7 +27,7 @@ router.post(
 
 router.patch(
   '/:id',
-  auth.requireRole('master_admin', 'management', 'marketing'),
+  auth.requireRole('master_admin', 'marketing'),
   async (req, res) => {
     const { name, phone, address, active } = req.body || {};
     const update = {};
@@ -40,7 +40,7 @@ router.patch(
       .getDb()
       .collection('customers')
       .findOneAndUpdate({ _id: req.params.id }, { $set: update }, { returnDocument: 'after' });
-    const doc = result.value || result;
+    const doc = result?.value ?? result;
     if (!doc) return res.status(404).json({ detail: 'Pelanggan tidak ditemukan' });
     await auth.audit(req, 'update', 'customer', req.params.id, update);
     res.json(doc);
@@ -49,13 +49,13 @@ router.patch(
 
 router.delete(
   '/:id',
-  auth.requireRole('master_admin', 'management', 'marketing'),
+  auth.requireRole('master_admin', 'marketing'),
   async (req, res) => {
     const result = await db
       .getDb()
       .collection('customers')
       .findOneAndUpdate({ _id: req.params.id }, { $set: { active: false } }, { returnDocument: 'after' });
-    const doc = result.value || result;
+    const doc = result?.value ?? result;
     if (!doc) return res.status(404).json({ detail: 'Pelanggan tidak ditemukan' });
     await auth.audit(req, 'deactivate', 'customer', req.params.id, {});
     res.json(doc);

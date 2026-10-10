@@ -52,6 +52,7 @@ export default function Account() {
       <Card className="mb-6">
         <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-3">Profil</h3>
         <form onSubmit={handleProfileSubmit}>
+          <Input label="Email (tidak dapat diubah)" value={user.email || '-'} disabled className="opacity-60 cursor-not-allowed" />
           <Input label="Nama Lengkap" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} required />
           <Input label="Username" value={profile.username} onChange={(e) => setProfile({ ...profile, username: e.target.value })} required />
           {profileError && <p className="text-sm text-red-500 dark:text-red-400 mb-3">{profileError}</p>}
@@ -76,15 +77,18 @@ export default function Account() {
             value={pwd.new_password}
             onChange={(e) => setPwd({ ...pwd, new_password: e.target.value })}
             required
-            minLength={6}
+            minLength={8}
           />
+          <p className="text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-3">
+            Minimal 8 karakter, mengandung kombinasi huruf besar dan angka.
+          </p>
           <Input
             label="Konfirmasi Password Baru"
             type="password"
             value={pwd.confirm_password}
             onChange={(e) => setPwd({ ...pwd, confirm_password: e.target.value })}
             required
-            minLength={6}
+            minLength={8}
           />
           {pwdError && <p className="text-sm text-red-500 dark:text-red-400 mb-3">{pwdError}</p>}
           {pwdSaved && <p className="text-sm text-green-600 dark:text-green-400 mb-3">Password berhasil diubah.</p>}

@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { Button, Card, Table, Modal, Input, Badge } from '../components/ui';
 
+const CAN_MANAGE_ROLES = ['master_admin', 'marketing'];
+
 export default function Customers() {
+  const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', address: '' });
@@ -40,7 +44,9 @@ export default function Customers() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Pelanggan</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Daftar pelanggan pengiriman es</p>
         </div>
-        <Button onClick={() => setOpen(true)}><Plus size={16} className="inline mr-1" /> Tambah Pelanggan</Button>
+        {CAN_MANAGE_ROLES.includes(user.role) && (
+          <Button onClick={() => setOpen(true)}><Plus size={16} className="inline mr-1" /> Tambah Pelanggan</Button>
+        )}
       </div>
 
       <Card>
@@ -50,11 +56,17 @@ export default function Customers() {
             { key: 'phone', header: 'Telepon' },
             { key: 'address', header: 'Alamat' },
             { key: 'active', header: 'Status', render: (r) => (r.active ? <Badge tone="green">Aktif</Badge> : <Badge tone="red">Nonaktif</Badge>) },
-            { key: 'actions', header: 'Aksi', render: (r) => (
-              <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => toggleActive(r)}>
-                {r.active ? 'Nonaktifkan' : 'Aktifkan'}
-              </Button>
-            ) },
+            ...(CAN_MANAGE_ROLES.includes(user.role)
+              ? [{
+                  key: 'actions',
+                  header: 'Aksi',
+                  render: (r) => (
+                    <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => toggleActive(r)}>
+                      {r.active ? 'Nonaktifkan' : 'Aktifkan'}
+                    </Button>
+                  ),
+                }]
+              : []),
           ]}
           rows={customers}
         />

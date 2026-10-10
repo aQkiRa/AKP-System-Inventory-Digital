@@ -22,6 +22,7 @@ function toSafe(u) {
   return {
     id: u._id,
     username: u.username,
+    email: u.email,
     name: u.name,
     role: u.role,
     role_label: auth.ROLE_LABELS[u.role],
@@ -36,19 +37,24 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { username, name, role, password } = req.body || {};
-  if (!username || !name || !role || !password) {
+  const { username, email, name, role, password } = req.body || {};
+  if (!username || !email || !name || !role || !password) {
     return res.status(400).json({ detail: 'Semua field wajib diisi' });
   }
   if (!auth.ROLES.includes(role)) {
     return res.status(400).json({ detail: 'Role tidak valid' });
   }
-  const existing = await db.getDb().collection('users').findOne({ username });
-  if (existing) return res.status(409).json({ detail: 'Username sudah digunakan' });
+  if (!auth.isPasswordValid(password)) {
+    return res.status(400).json({ detail: auth.PASSWORD_POLICY_MESSAGE });
+  }
+  const cleanEmail = String(email).trim().toLowerCase();
+  const existing = await db.getDb().collection('users').findOne({ $or: [{ username }, { email: cleanEmail }] });
+  if (existing) return res.status(409).json({ detail: 'Username atau email sudah digunakan' });
 
   const user = {
     _id: randomUUID(),
     username,
+    email: cleanEmail,
     name,
     role,
     password_hash: auth.hashPassword(password),
@@ -56,11 +62,12 @@ router.post('/', async (req, res) => {
     created_at: new Date().toISOString(),
   };
   await db.getDb().collection('users').insertOne(user);
-  await auth.audit(req, 'create', 'user', user._id, { username, role });
+  await auth.audit(req, 'create', 'user', user._id, { username, email: cleanEmail, role });
   res.status(201).json(toSafe(user));
 });
 
 router.patch('/:id', async (req, res) => {
+  // email is intentionally not accepted here: it's immutable once set
   const { name, role, active, password } = req.body || {};
   const update = {};
   if (name !== undefined) update.name = name;
@@ -69,13 +76,16 @@ router.patch('/:id', async (req, res) => {
     update.role = role;
   }
   if (active !== undefined) update.active = !!active;
-  if (password) update.password_hash = auth.hashPassword(password);
+  if (password) {
+    if (!auth.isPasswordValid(password)) return res.status(400).json({ detail: auth.PASSWORD_POLICY_MESSAGE });
+    update.password_hash = auth.hashPassword(password);
+  }
 
   const result = await db
     .getDb()
     .collection('users')
     .findOneAndUpdate({ _id: req.params.id }, { $set: update }, { returnDocument: 'after' });
-  const doc = result.value || result;
+  const doc = result?.value ?? result;
   if (!doc) return res.status(404).json({ detail: 'User tidak ditemukan' });
   await auth.audit(req, 'update', 'user', req.params.id, update);
   res.json(toSafe(doc));
@@ -89,7 +99,7 @@ router.delete('/:id', async (req, res) => {
     .getDb()
     .collection('users')
     .findOneAndUpdate({ _id: req.params.id }, { $set: { active: false } }, { returnDocument: 'after' });
-  const doc = result.value || result;
+  const doc = result?.value ?? result;
   if (!doc) return res.status(404).json({ detail: 'User tidak ditemukan' });
   await auth.audit(req, 'deactivate', 'user', req.params.id, {});
   res.json(toSafe(doc));

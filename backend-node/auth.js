@@ -28,11 +28,16 @@ const ROLE_LABELS = {
 const hashPassword = (p) => bcrypt.hashSync(p, 10);
 const verifyPassword = (p, h) => bcrypt.compareSync(p, h);
 
+const PASSWORD_POLICY_MESSAGE = 'Password minimal 8 karakter dan mengandung kombinasi huruf besar dan angka';
+function isPasswordValid(p) {
+  return typeof p === 'string' && p.length >= 8 && /[A-Z]/.test(p) && /[0-9]/.test(p);
+}
+
 function signToken(user) {
   return jwt.sign(
-    { sub: user._id, username: user.username, role: user.role, name: user.name },
+    { sub: user._id, username: user.username, email: user.email, role: user.role, name: user.name },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
   );
 }
 
@@ -46,14 +51,17 @@ function verifyToken(token) {
   return jwt.verify(token, process.env.JWT_SECRET);
 }
 
+const SUSPENDED_MESSAGE = 'Please contact the administrator; your account has been suspended.';
+
 async function requireAuth(req, res, next) {
   const token = readToken(req);
   if (!token) return res.status(401).json({ detail: 'Belum login' });
   try {
     const payload = verifyToken(token);
     const user = await getDb().collection('users').findOne({ _id: payload.sub });
-    if (!user || !user.active) return res.status(401).json({ detail: 'User tidak aktif' });
-    req.user = { id: user._id, username: user.username, name: user.name, role: user.role };
+    if (!user) return res.status(401).json({ detail: 'User tidak ditemukan' });
+    if (!user.active) return res.status(401).json({ detail: SUSPENDED_MESSAGE, code: 'account_suspended' });
+    req.user = { id: user._id, username: user.username, email: user.email, name: user.name, role: user.role };
     next();
   } catch (e) {
     return res.status(401).json({ detail: 'Sesi berakhir, silakan login ulang' });
@@ -87,9 +95,12 @@ module.exports = {
   ROLE_LABELS,
   hashPassword,
   verifyPassword,
+  isPasswordValid,
+  PASSWORD_POLICY_MESSAGE,
   signToken,
   verifyToken,
   requireAuth,
   requireRole,
+  SUSPENDED_MESSAGE,
   audit,
 };

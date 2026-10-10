@@ -30,8 +30,8 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  async function login(username, password) {
-    const { data } = await api.post('/auth/login', { username, password });
+  async function login(email, password) {
+    const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem('akp_token', data.token);
     localStorage.setItem('akp_user', JSON.stringify(data.user));
     setUser(data.user);
@@ -51,6 +51,14 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({ user, loading, login, logout, updateUser }), [user, loading]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+// Landing page per role: roles without Dashboard access go straight to their
+// own work page instead of bouncing off '/'.
+export function homePathFor(role) {
+  if (role === 'tim_produksi') return '/production';
+  if (role === 'driver') return '/driver';
+  return '/';
 }
 
 export function useAuth() {
